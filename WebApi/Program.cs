@@ -11,13 +11,14 @@ builder.Services.AddSignalR();
 // Registra o repositório e o serviço
 builder.Services.AddSingleton<ISessionRepository, InMemorySessionRepository>();
 builder.Services.AddTransient<SessionService>();
+builder.Services.AddTransient<GameActionsService>();
 
 // Configuração do CORS
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://192.168.18.83:5173") // URL do frontend
+        policy.WithOrigins("http://localhost:5173", "http://localhost:4173", "https://orange-banks-sip.loca.lt") // URL do frontend
            .AllowAnyHeader() // Permite qualquer cabeçalho
            .AllowAnyMethod() // Permite qualquer método HTTP (GET, POST, etc.)
            .AllowCredentials(); // Permite cookies e autenticação

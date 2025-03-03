@@ -7,41 +7,24 @@ namespace WebApi.Hubs
     public class SessionHub : Hub
     {
         private readonly SessionService _service;
+        private readonly GameActionsService _gameActions;
 
-        public SessionHub(SessionService service)
+        public SessionHub(SessionService service, GameActionsService gameActions)
         {
             _service = service;
+            _gameActions = gameActions;
         }
 
-        // Método para criar uma nova sessão
-        public async Task<string> CreateSession(string nickname)
+        // Mantém o método de criar sessão
+        public async Task<string> CreateSession()
         {
-            var sessionCode = Guid.NewGuid().ToString().Substring(0, 6).ToUpper(); // Gera um código único
-
-            // Cria uma nova sessão associada ao sessionCode
-            var session = new SessionEntity
-            {
-                SessionCode = sessionCode,
-                Players = new List<PlayerEntity>
-                {
-                  new PlayerEntity
-                  {
-                      ConnectionId = Context.ConnectionId,
-                      Nickname = nickname
-                  }
-                }
-            };
-
-            await _service.SaveSessionAsync(session); // Salva a sessão no repositório
-
-            // Adiciona o cliente ao grupo correspondente à sessão
-            await Groups.AddToGroupAsync(Context.ConnectionId, sessionCode);
-
-            // Retorna o sessionCode para o cliente
+            var sessionCode = Guid.NewGuid().ToString().Substring(0, 6).ToUpper();
+            var session = new SessionEntity { SessionCode = sessionCode };
+            await _service.SaveSessionAsync(session);
             return sessionCode;
         }
 
-        // Método para entrar em uma sessão existente
+        // Mantém o método de entrar na sessão
         public async Task JoinSession(string sessionCode, string nickname)
         {
             var session = await _service.GetSessionAsync(sessionCode);
@@ -51,64 +34,75 @@ namespace WebApi.Hubs
                 return;
             }
 
-            // Adiciona o jogador à lista de jogadores da sessão
             var player = new PlayerEntity
             {
                 ConnectionId = Context.ConnectionId,
                 Nickname = nickname
             };
+
             session.Players.Add(player);
+            await _service.SaveSessionAsync(session);
 
-            await _service.SaveSessionAsync(session); // Salva a sessão atualizada
-
-            // Adiciona o cliente ao grupo correspondente à sessão
             await Groups.AddToGroupAsync(Context.ConnectionId, sessionCode);
-
-            // Notifica todos os clientes sobre a lista atualizada de jogadores
             await Clients.Group(sessionCode).SendAsync("UpdatePlayers", session.Players);
 
-            // Envia o estado atual do contador para o cliente que acabou de entrar
+            // Envia o estado atual do contador para quem acabou de entrar
             await Clients.Caller.SendAsync("UpdateCounter", session.Counter);
         }
 
-        // Incrementa o contador
-        public async Task IncrementCounter(string sessionCode)
+        // Novo método genérico para executar ações
+        public async Task ExecuteAction(string sessionCode, string actionName, object? payload)
         {
             var session = await _service.GetSessionAsync(sessionCode);
-            if (session != null)
+            if (session == null)
             {
-                session.Counter++;
-                await _service.SaveSessionAsync(session);
+                await Clients.Caller.SendAsync("Error", "Sessão não encontrada");
+                return;
+            }
 
-                // Notifica todos os clientes no grupo sobre a atualização do contador
-                await Clients.Group(sessionCode).SendAsync("UpdateCounter", session.Counter);
+            // Roteia para a lógica correspondente
+            switch (actionName)
+            {
+                case "IncrementCounter":
+                    await _gameActions.IncrementCounter(session);
+                    // Notifica todos do grupo: ex., UpdateCounter
+                    await Clients.Group(sessionCode).SendAsync("UpdateCounter", session.Counter);
+                    break;
+
+                case "DecrementCounter":
+                    await _gameActions.DecrementCounter(session);
+                    await Clients.Group(sessionCode).SendAsync("UpdateCounter", session.Counter);
+                    break;
+
+                //case "AttackPlayer":
+                //    // Aqui assumimos que o payload traz o ID do jogador-alvo
+                //    // Exemplo: { \"targetPlayerId\": \"xyz\" }
+                //    if (payload is Newtonsoft.Json.Linq.JObject jObj)
+                //    {
+                //        var targetPlayerId = jObj["targetPlayerId"]?.ToString();
+                //        if (!string.IsNullOrEmpty(targetPlayerId))
+                //        {
+                //            await _gameActions.AttackPlayer(session, targetPlayerId);
+                //            // Notifica mudanças...
+                //            await Clients.Group(sessionCode).SendAsync("SomeAttackEvent", targetPlayerId);
+                //        }
+                //    }
+                //    break;
+
+                default:
+                    await Clients.Caller.SendAsync("Error", $"Ação não reconhecida: {actionName}");
+                    break;
             }
         }
 
-        // Decrementa o contador
-        public async Task DecrementCounter(string sessionCode)
-        {
-            var session = await _service.GetSessionAsync(sessionCode);
-            if (session != null)
-            {
-                session.Counter--;
-                await _service.SaveSessionAsync(session);
-
-                // Notifica todos os clientes no grupo sobre a atualização do contador
-                await Clients.Group(sessionCode).SendAsync("UpdateCounter", session.Counter);
-            }
-        }
-
-        // Remove o jogador quando ele se desconecta
+        // Mantemos OnDisconnectedAsync para remover jogadores
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             var session = await _service.RemovePlayerByConnectionId(Context.ConnectionId);
             if (session != null)
             {
-                // Notifica todos os clientes sobre a lista atualizada de jogadores
                 await Clients.Group(session.SessionCode).SendAsync("UpdatePlayers", session.Players);
             }
-
             await base.OnDisconnectedAsync(exception);
         }
     }
