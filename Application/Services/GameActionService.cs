@@ -1,38 +1,101 @@
-﻿using Domain.Entities;
+﻿using Application.Factories;
+using Domain.Entities;
 
 namespace Application.Services
 {
-    public class GameActionsService
+    public class GameActionsService(SessionService sessionService)
     {
-        private readonly SessionService _sessionService;
+        private readonly SessionService _sessionService = sessionService;
 
-        public GameActionsService(SessionService sessionService)
+        public async Task<CurrentActionEntity> HandleDeclareAction(string sessionCode, string actorPlayerId, string actionName, string? targetId)
         {
-            _sessionService = sessionService;
+            var session = await _sessionService.GetSessionAsync(sessionCode) ?? throw new Exception("Sessão não encontrada");
+           
+            var gamePhase = session.GamePhase;
+
+            var action = GameActionFactory.CreateAction(actionName);
+
+            var currentAction = new CurrentActionEntity()
+            {
+                ActorPlayerId = actorPlayerId,
+                ActionName = actionName,
+                TargetPlayerId = targetId,
+                CounterActionChoices = action.CounterActionChoices
+            };
+
+            gamePhase.CurrentAction = currentAction;
+
+            return currentAction;
         }
 
-        public async Task IncrementCounter(SessionEntity session)
+        public async Task<ActionEntity> HandleDeclareCounterAction(string sessionCode, string actorPlayerId, string counterActionName)
         {
-            session.Counter++;
+            var session = await _sessionService.GetSessionAsync(sessionCode) ?? throw new Exception("Sessão não encontrada");
+
+            var counterAction = new ActionEntity()
+            {
+                ActionName = counterActionName,
+                ActorPlayerId = actorPlayerId
+            };
+
+            session.GamePhase.CounterAction = counterAction;
+
             await _sessionService.SaveSessionAsync(session);
-            // Você pode notificar o Hub ou retornar algo para que o Hub notifique
+
+            return counterAction;
         }
 
-        public async Task DecrementCounter(SessionEntity session)
+        public async Task HandleDeclareChallenge(string sessionCode)
         {
-            session.Counter--;
+            var session = await _sessionService.GetSessionAsync(sessionCode) ?? throw new Exception("Sessão não encontrada");
+
+            session.GamePhase.IsActionChallenged = true;
+                
             await _sessionService.SaveSessionAsync(session);
         }
 
-        // Exemplo de outra ação
-        public async Task AttackPlayer(SessionEntity session, string targetPlayerId)
+        public async Task HandleExecuteAction(string sessionCode)
         {
-            // Lógica de ataque, ex:
-            // var target = session.Players.FirstOrDefault(p => p.ConnectionId == targetPlayerId);
-            // target.HP -= 10; // se tiver HP
-            // await _sessionService.SaveSessionAsync(session);
-        }
+            var session = await _sessionService.GetSessionAsync(sessionCode) ?? throw new Exception("Sessão não encontrada");
 
-        // Outras ações...
+            var gamephase = session.GamePhase;
+            var currentAction = gamephase.CurrentAction;
+
+            var action = GameActionFactory.CreateAction(currentAction.ActionName);
+
+            action.Execute(session, currentAction);
+
+            await _sessionService.SaveSessionAsync(session);
+        }
+ 
+        public async Task<(bool nextTurn, bool finishGame)> HandleFinishTurn(string sessionCode)
+        {
+            var session = await _sessionService.GetSessionAsync(sessionCode) ?? throw new Exception("Sessão não encontrada");
+
+            List<PlayerEntity> players = session.Players;
+
+            var defeatedPlayers = players.Where(p => p.Cards.All(c => c.Exposed));
+
+            if (defeatedPlayers.Count() == players.Count - 1)
+                return (nextTurn: false, finishGame: true);
+
+            var gamephase = session.GamePhase;
+
+            var currentPlayerIndex = players.FindIndex(s => s.ConnectionId == gamephase.CurrentAction.ActorPlayerId);
+
+            var nextPlayer = currentPlayerIndex + 1 % players.Count;
+
+            gamephase = new()
+            {
+                CurrentAction = new() 
+                { 
+                    ActorPlayerId = session.Players[nextPlayer].ConnectionId,
+                },
+                CounterAction = null,
+                IsActionChallenged = false,
+            };
+
+            return (nextTurn: true, finishGame: false);
+        }
     }
 }

@@ -11,7 +11,6 @@ builder.Services.AddSignalR();
 // Registra o repositório e o serviço
 builder.Services.AddSingleton<ISessionRepository, InMemorySessionRepository>();
 builder.Services.AddTransient<SessionService>();
-builder.Services.AddTransient<GameActionsService>();
 
 // Configuração do CORS
 builder.Services.AddCors(options =>
@@ -32,7 +31,6 @@ app.UseCors(); // Ativa o CORS antes dos endpoints
 
 app.UseAuthorization();
 
-app.MapControllers();
 app.MapHub<SessionHub>("/sessionHub");
 
 app.Run();

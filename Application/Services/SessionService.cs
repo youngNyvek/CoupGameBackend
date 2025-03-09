@@ -32,26 +32,6 @@ namespace Application.Services
             await _repository.SaveSessionAsync(session);
         }
 
-        public async Task IncrementCounterAsync(string sessionCode)
-        {
-            var session = await _repository.GetSessionAsync(sessionCode);
-            if (session != null)
-            {
-                session.Counter++;
-                await _repository.SaveSessionAsync(session);
-            }
-        }
-
-        public async Task DecrementCounterAsync(string sessionCode)
-        {
-            var session = await _repository.GetSessionAsync(sessionCode);
-            if (session != null)
-            {
-                session.Counter--;
-                await _repository.SaveSessionAsync(session);
-            }
-        }
-
         public async Task<SessionEntity?> RemovePlayerByConnectionId(string connectionId)
         {
             // Busca a sessão associada ao ConnectionId
