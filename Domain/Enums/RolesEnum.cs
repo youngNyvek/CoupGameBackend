@@ -2,8 +2,10 @@
 {
     public enum RolesEnum
     {
-        Duke = 0,
-        Countess = 1,
-        Assassin = 2,
+        Duke,
+        Countess,
+        Assassin,
+        Captain,
+        Ambassador
     }
 }

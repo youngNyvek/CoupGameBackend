@@ -1,13 +1,15 @@
 ﻿using Application.Services;
 using Domain.Entities;
 using Microsoft.AspNetCore.SignalR;
+using System.Numerics;
 
 namespace WebApi.Hubs
 {
-    public class SessionHub(SessionService service, GameActionsService gameActions) : Hub
+    public class SessionHub(SessionService service, GameActionsService gameActions, GameManagerService gameManager) : Hub
     {
         private readonly SessionService _service = service;
         private readonly GameActionsService _gameActions = gameActions;
+        private readonly GameManagerService _gameManager = gameManager;
 
         // Mantém o método de criar sessão
         public async Task<string> CreateSession()
@@ -22,6 +24,16 @@ namespace WebApi.Hubs
             return sessionCode;
         }
 
+        public async Task StartGame(string sessionCode)
+        {
+            var session = await _gameManager.StartGame(sessionCode);
+
+            foreach (var player in session.Players)
+            {
+                await Clients.Client(player.ConnectionId).SendAsync("StartGame", player.Deck);
+            }   
+        }
+
         // Mantém o método de entrar na sessão
         public async Task JoinSession(string sessionCode, string nickname)
         {
@@ -30,8 +42,7 @@ namespace WebApi.Hubs
             var player = new PlayerEntity
             {
                 ConnectionId = Context.ConnectionId,
-                Nickname = nickname,
-                Coins = 2,
+                Nickname = nickname
             };
 
             session.Players.Add(player);
@@ -88,12 +99,13 @@ namespace WebApi.Hubs
             await Clients.Group(sessionCode).SendAsync("ActionDone");
         }
 
-        public async Task ExecuteCounterAction(string sessionCode)
+        public async Task HandleFinishTurn(string sessionCode)
         {
-        }
+            var session = await _service.GetSessionAsync(sessionCode);
 
-        public async Task ExecuteChallenge(string sessionCode)
-        {
+            await _gameManager.HandleFinishTurn(sessionCode);
+            
+            await Clients.Group(sessionCode).SendAsync("UpdatePlayers", session.Players);
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)

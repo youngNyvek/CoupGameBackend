@@ -34,13 +34,11 @@ namespace Application.Services
 
         public async Task<SessionEntity?> RemovePlayerByConnectionId(string connectionId)
         {
-            // Busca a sessão associada ao ConnectionId
             var sessions = await _repository.GetAllSessionsAsync();
 
-            // Encontra o jogador e a sessão associados ao ConnectionId
             var playerWithSession = sessions
-             .SelectMany(s => s.Players.Select(p => new { Player = p, Session = s }))
-             .FirstOrDefault(ps => ps.Player.ConnectionId == connectionId);
+                .SelectMany(s => s.Players.Select(p => new { Player = p, Session = s }))
+                .FirstOrDefault(ps => ps.Player.ConnectionId == connectionId);
 
             if (playerWithSession == null)
             {
@@ -51,14 +49,11 @@ namespace Application.Services
             var session = playerWithSession.Session;
             var player = playerWithSession.Player;
 
-            // Remove o jogador da lista
             session.Players.Remove(player);
             Console.WriteLine($"Jogador {player.Nickname} removido da sessão {session.SessionCode}");
 
-            // Salva a sessão atualizada no repositório
             await _repository.SaveSessionAsync(session);
 
-            // Retorna a sessão atualizada
             return session;
         }
     }

@@ -11,6 +11,8 @@ builder.Services.AddSignalR();
 // Registra o repositório e o serviço
 builder.Services.AddSingleton<ISessionRepository, InMemorySessionRepository>();
 builder.Services.AddTransient<SessionService>();
+builder.Services.AddTransient<GameActionsService>();
+builder.Services.AddTransient<GameManagerService>();
 
 // Configuração do CORS
 builder.Services.AddCors(options =>

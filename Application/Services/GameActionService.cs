@@ -68,34 +68,6 @@ namespace Application.Services
             await _sessionService.SaveSessionAsync(session);
         }
  
-        public async Task<(bool nextTurn, bool finishGame)> HandleFinishTurn(string sessionCode)
-        {
-            var session = await _sessionService.GetSessionAsync(sessionCode) ?? throw new Exception("Sessão não encontrada");
-
-            List<PlayerEntity> players = session.Players;
-
-            var defeatedPlayers = players.Where(p => p.Cards.All(c => c.Exposed));
-
-            if (defeatedPlayers.Count() == players.Count - 1)
-                return (nextTurn: false, finishGame: true);
-
-            var gamephase = session.GamePhase;
-
-            var currentPlayerIndex = players.FindIndex(s => s.ConnectionId == gamephase.CurrentAction.ActorPlayerId);
-
-            var nextPlayer = currentPlayerIndex + 1 % players.Count;
-
-            gamephase = new()
-            {
-                CurrentAction = new() 
-                { 
-                    ActorPlayerId = session.Players[nextPlayer].ConnectionId,
-                },
-                CounterAction = null,
-                IsActionChallenged = false,
-            };
-
-            return (nextTurn: true, finishGame: false);
-        }
+        
     }
 }
