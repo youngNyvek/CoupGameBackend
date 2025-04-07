@@ -4,5 +4,6 @@
     {
         public string? ActionName { get; set; }
         public required string ActorPlayerId { get; set; }
+        public bool CanBeChallenged { get; set; }
     }
 }

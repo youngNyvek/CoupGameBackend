@@ -20,7 +20,8 @@ namespace Application.Services
                 ActorPlayerId = actorPlayerId,
                 ActionName = actionName,
                 TargetPlayerId = targetId,
-                CounterActionChoices = action.CounterActionChoices
+                CounterActionChoices = action.CounterActionChoices,
+                CanBeChallenged = action.CanBeChallenged
             };
 
             gamePhase.CurrentAction = currentAction;
@@ -67,7 +68,5 @@ namespace Application.Services
 
             await _sessionService.SaveSessionAsync(session);
         }
- 
-        
     }
 }

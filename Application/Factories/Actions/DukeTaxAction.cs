@@ -5,7 +5,7 @@ namespace Application.Factories.Actions
 {
     public class DukeTaxAction : IGameAction
     {
-        public bool CanBeChallenged => true; // Pode ser contestado
+        public bool CanBeChallenged => true;
 
         public void Execute(SessionEntity session, ActionEntity actionEntity)
         {

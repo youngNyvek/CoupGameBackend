@@ -6,7 +6,7 @@ namespace Application.Factories
     {
         private static readonly Dictionary<string, Func<IGameAction>> _actionMap = new()
         {
-            { "DukeTax", () => new Actions.DukeTaxAction() },
+            { "TAX", () => new Actions.DukeTaxAction() },
         };
 
         public static IGameAction CreateAction(string actionName)

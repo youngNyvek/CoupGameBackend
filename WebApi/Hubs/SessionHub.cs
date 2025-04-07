@@ -1,7 +1,6 @@
 ﻿using Application.Services;
 using Domain.Entities;
 using Microsoft.AspNetCore.SignalR;
-using System.Numerics;
 
 namespace WebApi.Hubs
 {
@@ -30,8 +29,11 @@ namespace WebApi.Hubs
 
             foreach (var player in session.Players)
             {
-                await Clients.Client(player.ConnectionId).SendAsync("StartGame", player.Deck);
-            }   
+                await Clients.Client(player.ConnectionId).SendAsync("UpdateDeck", player.Deck);
+            }
+
+            await Clients.Group(sessionCode).SendAsync("UpdateSession", session);
+            await Clients.Group(sessionCode).SendAsync("GameStarted", session);
         }
 
         // Mantém o método de entrar na sessão
@@ -94,18 +96,9 @@ namespace WebApi.Hubs
             }
 
             await _gameActions.HandleExecuteAction(sessionCode);
+            var finishedTurnResult = await _gameManager.HandleFinishTurn(sessionCode);
 
-            await Clients.Group(sessionCode).SendAsync("UpdatePlayers", session.Players);
-            await Clients.Group(sessionCode).SendAsync("ActionDone");
-        }
-
-        public async Task HandleFinishTurn(string sessionCode)
-        {
-            var session = await _service.GetSessionAsync(sessionCode);
-
-            await _gameManager.HandleFinishTurn(sessionCode);
-            
-            await Clients.Group(sessionCode).SendAsync("UpdatePlayers", session.Players);
+            await Clients.Group(sessionCode).SendAsync("UpdateSession", session);
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
